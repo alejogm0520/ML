@@ -1,0 +1,360 @@
+---
+title: "Modelación del vino a través de los modelos lineales generalizados"
+author: 
+- Alejandro Gómez Montoya^[agomez13@eafit.edu.co]
+- Yeisson Alexis Acevedo Agudelo^[yaceved2@eafit.edu.co]
+date: ""
+output: 
+  pdf_document: 
+    keep_tex: yes
+    number_sections: yes
+    fig_caption: yes
+header:
+ - \usepackage[utf8]{inputenc}
+ - \usepackage[spanish]{babel}
+ - \usepackage{multirow}
+ - \usepackage{multicol}
+ - \usepackage{amssymb}
+ - \usepackage{amsmath}
+ - \usepackage{anysize}
+ - \marginsize{3.5cm}{2.5cm}{1.5cm}{1.5cm} 
+ - \usepackage{enumitem}
+ - \setlength\parindent{0pt}
+ - \usepackage{filecontents}
+ - \usepackage{pgfplots, pgfplotstable}
+ - \usepgfplotslibrary{statistics}
+ - \usepackage{hyperref}
+ - \usepackage{graphicx}
+ - \usepackage{caption}
+ - \usepackage{subcaption}
+bibliography: biblio.bib
+csl: ieee-with-url.csl
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+\rule{0.9\textwidth}{0.1mm}
+\textit{Keywords:} Vino, Regresión logística, Regresión Poisson, Análisis estadístico.
+
+\rule{0.9\textwidth}{0.1mm}
+
+# Introducción
+
+Identificar las propiedades fisicoquímicas y sensoriales del vino resulta de gran utilidad a la hora de asignar una ponderación de calidad para el vino tinto y blanco. En la literatura se encuentran varios trabajos en los que se ha intentado modelar la calidad de este tipo de vinos en relación a pruebas analíticas disponbles en la etapa de certificación, tanto, a saber: características sensoriales [@Ferrarini2010, @Wariishi2016] y propiedades fisicoquímicas [@Cortez2009, @Wang2016]. La mayoría de los autores han usado las redes neuronales, minería de datos, regresión, lineal, logística, multinomial y máquinas de soporte vectores para tal fin [@Song2014, @Dooley2012, @Lee2015, @Wang2016, @Cortez2009a]. Sin embargo, resulta más provechoso para la industria tener modelos no precisamente de tipo caja negra sino que permita una mejor descripción de la calidad en relación a los componentes del vino  y la percepción que genera en sus consumidores.
+
+En este mismo sentido, conviene resaltar que un modelamiento en relación a la multiplicidad categórica de las características del vino tinto y blanco, y en pro de brindar una estimación de su calidad, sería de gran utilidad para aportar las evaluaciones de enología y mejorar su producción [@Lee2015], o mejor aún, estimar su viabilidad en la caracterización y nivel preferencial en el gusto del consumidor, minimizar el costo en producción [@Johansen2016] e inclusive articular aspectos propios de su comercialización. Claro está, un modelamiento con tales alcances no resulta fácil de estimar si se considera de entrada las interacciones altamente no lineales  que en las pruebas de calidad se llevan a cabo. Cortez menciona que en la certificación del vino en relación a las pruebas fisicoquímicas se determinan densidad, alcohol y valores PH [@Cortez2009] mientras que autores como Mei-Yi, proponen la clasificación del vino como toda una ardua tarea y de difícil modelamiento ya que el gusto es uno de los sentidos más incomprendidos [@Wu2015, @Ferrarini2010] ni qué decir si se considera el hecho que el tipo de vino, el tipo de azúcar y el pH conllevan hacía una acidez diversa en el vino preparado.
+
+En relación a lo anterior, el presente trabajo tiene la intensión de estimar un modelo de regresión logística con salida factor de calidad y un modelo regresión Poisson con salida factor acidez volátil. Respecto al primero se busca relacionar las variables entradas o explicativas (acidez fija AF,acidez volátil AV, Ácido cítrico AC, Azúcar residual AR, cloruros C, dióxido de azufre libre SO2L, dióxido de azufre total SO2T, densidad D, pH, sulfatos S, grado alcohólico GL) con la variable respuesta Calidad; respecto al segundo modelo, se busca estimar este de manera que relacione las entradas (calidad, tipo de vino, tipo de azúcar y pH) con la variable respuesta AV. 
+
+De esta manera resulta claro que el objetivo es aplicar técnicas para el modelado de variables respuestas categóricas,  modelando  la calidad del vino usando los resultados de las pruebas físico-químicas. La calidad se abordará entonces desde dos puntos de vistas: (i) a partir de una calificación sensorial, y (ii) verificando el número de vinos que satisfacen ciertos rangos preestablecidas para alguna de las variables físico-químicas.
+
+El presentre trabajo contiene, en la sección 2 el análisis exploratorio de los datos, tanto para los datos correspondientes a la regressión logística, como los datos correspondientes para la regressión poisson; en la sección 3 se realiza el ajuste, simplificación y análisis del modelo de regressión logística y el mismo procedimiento para la regressión poisson; en la sección 4 se encuentran las conclusiones obtenidas y por último en la sección 5 se presenta la bibliografía usada.
+
+# Análisis exploratorio de datos
+
+
+## Regresión Logística
+
+El presente trabajo emplea una base de datos real que contiene 6497 observaciones [@Cortez2009] relacionadas con dos tipos de vino: tinto y blanco. En estas se obtuvo el indicador de calidad para el vino en un rango de referencia de 3 a 9, ésta medida es la que se considerá  como salida de los modelos estimados, y esta dada por expertos en el area [@Cortez2009]. La prueba de calidad del vino se estructura en función de los análisis fisico-químicos, a saber: acidez fija, volátil, ácido cítrico, azúcar residual, cloruros, dióxido de azufre libre y total, densidad, pH, sulfatos y grado alcohólico. Estos últimos serán considerados como entradas en los modelos estimados. 
+
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+library(readxl)
+library(car)
+library(knitr)
+library(kableExtra)
+library(lattice)
+library(car)
+library(AER)
+library(nnet)
+library(caret)
+wines <- read_excel('/home/juliett/EEG/Dropbox/Maestría Matemáticas Aplicadas/Modelos Lineales Generalizados/Trabajo 2/data.xlsx')
+#wines <- read_excel('M:\\Dropbox\\Maestr?a Matem?ticas Aplicadas\\Modelos Lineales Generalizados\\Trabajo 2\\data.xlsx')
+wines$Ca[wines$Calidad< 6]=1
+wines$Ca[wines$Calidad == 6]=2
+wines$Ca[wines$Calidad > 6]=3
+
+wines$Tipo <- factor(wines$Tipo)
+wines$Tipo_Azucar <- factor(wines$Tipo_Azucar)
+wines$pHB <- factor(wines$pHB)
+#wines$AVB <- factor(wines$AVB)
+wines$Calidad <- factor(wines$Calidad)
+wines$Ca <- ordered(wines$Ca)
+
+X <- wines[,c(1:11)]
+X <- as.matrix(X)
+```
+
+
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#summary(data)
+tmp <- do.call(data.frame, 
+           list(Media = apply(X, 2, mean),
+                Desviacion = apply(X, 2, sd),
+                Mediana = apply(X, 2, median),
+                Minimo = apply(X, 2, min),
+                Maximo = apply(X, 2, max),
+                'Coef Variacion' = sapply(1:dim(X)[2], function(x) sd(X[,x])/abs(mean(X[,x])) ),
+                Rango =  sapply(1:dim(X)[2], function(x) max(X[,x])-(min(X[,x])) ),
+                'Rango Intercuartil' = apply(X, 2, IQR)
+                ))
+```
+
+
+```{r, echo=FALSE}
+kable((tmp), format = "latex", digits = 2,  caption ="\\label{tab_01}Caracteristicas de la Base de Datos", booktabs = T) %>% kable_styling(latex_options = "striped")
+```
+
+
+
+En la tabla 1,  se muestran las principales medidas de tendencia central y dispersión de las variables involucradas en la modelación. Puede notarse en dicha tabla, que la variable de Densidad tiene una variación minima, esto puede indicar que esta variable no tiene cambios significativos en la base de datos, por lo cual está no contenga información relevante para la construcción del modelo de Calidad del Vino, esto puede contrastarse con la variable de Cloruros, dadoque esta tiene una variación pequeña, sin embargo su coeficiente de variación es significativo. Puede ser resaltado que el alto coeficiente de variación de la Azúcar Residual, puede ser un factor que  introduzca errores al modelo. 
+
+
+```{r, fig.height=11.5, fig.width=9, fig.cap = "Gráfico de Dispersión\\label{fig1}", echo=FALSE}
+scatterplotMatrix(~AF+AV+AC+AR+C+SO2L+SO2T+D+pH+S+GL+Tipo|Calidad, data=wines,  smoother=FALSE, legend.plot=TRUE)
+legend(x=100, y=100, legend=c(3, 4, 5,6, 7, 8, 9))
+```
+
+Es importante estudiar el comportamiento de los datos, para determinar posibles multicolinealidades, por lo cual se análiza la dispersión de los datos, que se muestra en la Figura \ref{fig1}, en esta se representa con cada color una categoría de la calidad de vino, en el eje central el histograma para cada variable explicativa y con una linea negra en cada gráfico de dispersión se representa el valor medio de los datos. De este gráfico puede identificarse correlación entre las variables D-GL, SO2L - SO2T, SO2L - D, D - pH, lo cual puede indicar que puede encontrarse muticolinealidad y puede afectar el resultado del modelo. 
+
+Una exploración mas profunda se presenta en la figura \ref{fig2}, en la cual se calcula las densidades para cada variable en función de cada categoria, en color rojo se presenta el vino Blanco y en color Azul se presenta el vino Tinto, esta división se presenta dado que las propiedades de ambos tipos de vino pueden diferir significativamente [@Wang2016, @Song2014].
+
+```{r, echo=FALSE, fig.height=2, fig.width=9, echo=FALSE, fig.cap="Gráfico de Densidades para cada Variable\\label{fig2}"}
+colors = c("red", "blue")
+lines = c(1,2) #1
+points = c(16,17)
+key.trans <- list(title="Tipo de Vino",
+                  space="right", columns=1, #2
+                  text=list(levels(wines$Tipo)),
+                  lines=list(col=colors, lty=lines),
+                  cex.title=1, cex=.9) 
+densityplot(~AF|Calidad,plot.points = FALSE, ylab='Densidad', data=wines, groups = Tipo, lwd =2, lty=lines, col=colors, layout=c(7, 1),  jitter=.005)
+densityplot(~AV|Calidad,plot.points = FALSE, ylab='Densidad', data=wines, groups = Tipo, lwd =2, lty=lines, col=colors, layout=c(7, 1),  jitter=.005)
+densityplot(~AC|Calidad,plot.points = FALSE, ylab='Densidad', data=wines, groups = Tipo, lwd =2, lty=lines, col=colors, layout=c(7, 1),  jitter=.005)
+densityplot(~AR|Calidad, plot.points = FALSE, ylab='Densidad', data=wines, groups = Tipo, lwd =2, lty=lines, col=colors, layout=c(7, 1),  jitter=.005)
+densityplot(~C|Calidad, plot.points = FALSE, ylab='Densidad', data=wines, groups = Tipo, lwd =2, lty=lines, col=colors, layout=c(7, 1),  jitter=.005)
+densityplot(~SO2L|Calidad, plot.points = FALSE, ylab='Densidad', data=wines, groups = Tipo, lwd =2, lty=lines, col=colors, layout=c(7, 1),  jitter=.005)
+densityplot(~SO2T|Calidad, plot.points = FALSE, ylab='Densidad', data=wines, groups = Tipo, lwd =2, lty=lines, col=colors, layout=c(7, 1),  jitter=.005)
+densityplot(~D|Calidad, plot.points = FALSE, ylab='Densidad', data=wines, groups = Tipo, lwd =2, lty=lines, col=colors, layout=c(7, 1),  jitter=.005)
+densityplot(~pH|Calidad, plot.points = FALSE, ylab='Densidad', data=wines, groups = Tipo, lwd =2, lty=lines, col=colors, layout=c(7, 1),  jitter=.005)
+densityplot(~S|Calidad, plot.points = FALSE, ylab='Densidad', data=wines, groups = Tipo, lwd =2, lty=lines, col=colors, layout=c(7, 1),  jitter=.005)
+```
+
+```{r, echo=FALSE, fig.height=2, fig.width=9, echo=FALSE, fig.cap="Gráfico de Densidades para cada Variable"}
+densityplot(~GL|Calidad, plot.points = FALSE, ylab='Densidad', data=wines, groups = Tipo, lwd =2, lty=lines, col=colors, layout=c(7, 1),  jitter=.005)
+
+```
+
+Puede notarse que no se encuentran cambios significativos para las variables S, D, también se encuentran comportamientos semejantes de las variables SO2L y SO2T, esto puede indicar que se encuentran variables explicativas que no son realmente relevantes para el modelo de la calidad. Otra herramienta que se utilizá para análizar los datos, corresponde a un test de medias, para cada categoría, que se presenta en la Tabla 2.
+
+```{r, warning=FALSE, echo=FALSE}
+Diff <- function(X){
+  X1 <- subset(X, Tipo == 'Blanco')[,-12]
+  X1 <- as.matrix(X1, nrow=11)
+  X2 <- subset(X, Tipo == 'Tinto')[,-12]
+  X2 <- as.matrix(X2, nrow=11)
+  X <- X[,-12]
+  X <- as.matrix(X, nrow=1)
+  tmp <- do.call(data.frame, 
+                 list(#Media = apply(X1, 2, mean),
+                      #Media = apply(X2, 2, mean),
+                      Media = apply(X, 2, mean)
+                 ))
+return(tmp)  
+}
+
+aa <- sapply(3:9, function(yy) as.matrix(Diff(subset(wines[c(1:11, 13,12)], Calidad==yy)[-13])))
+
+row.names(aa) <- colnames(wines)[1:11]
+colnames(aa) <- c(3:9)
+```
+
+```{r, echo=FALSE}
+kable((aa), format = "latex", digits = 3,  caption = "Test de Medidas", booktabs = T) %>% kable_styling(latex_options = "striped")
+```
+
+Dicha tabla permite identificar que la variable D tiene una minima variación de la media, por lo cual no es recomendable utilizarla en el modelo, de igual forma se encuentran equivalencias para algunas categorias con la variable S.
+
+
+## Regresión Poisson
+
+Para esta estimación, se considerará la misma base de datos real que contiene 6497 observaciones [@Cortez2009]. En este caso se busca estimar si el vino cumple con la Ácidez Volatil deseada, en función de la Calidad del Vino, el Tipo de Vino, el Tipo de Azúcar y si cumple con los requisitos de pH. Cada una de las variables utilizadas son categoricas, de igual forma se gráfica la dispersión de los datos, y se presenta en la Figura \ref{fig3}.
+
+
+
+```{r, fig.height=9, fig.width=9, echo=FALSE, fig.cap="Gráfico de Dispersión\\label{fig3}"}
+scatterplotMatrix(~Calidad+Tipo+Tipo_Azucar+pHB|AVB, data=wines, smoother=FALSE, legend.pos="topright", plot.points=TRUE) 
+```
+
+Son notorias las diferencias de cada variable para las variables de Calidad, el indice de pH y el Tipo de Vino, sin embargo no se encuentra un cambio significativo para el Tipo de Azucar, esto puede indicar que dicha variable no es significativa para el modelo. La figura \ref{fig8} se representan la distribución de los datos para cada tipo de categoría, esta representación de la información corresponde a la tabla de contingencia de los datos y  permite concluir que se cuentan con excasas muestras de vinos Dulces y Semidulces, del conjunto de los vinos Tintos. También puede identificarse una mayor proporción de vinos Blancos que Tintos, y permite identificar que variables tienen una mayor predominancia como los vinos extra secos y los vinos secos.
+
+```{r, echo=FALSE, fig.cap="Gráfico de Mosaico\\label{fig8}", fig.height=11, fig.width=9}
+X2 <- wines[,c(17,13:16)]
+mosaicplot(Tipo_Azucar ~ AVB + Tipo + pHB+ Ca,data=X2, color=TRUE, off=9, main="Gráfico de Mosaico Regresión Poisson")
+```
+
+# Ajuste del modelo
+
+## Regresión Logistica
+
+Como primer modelo se ajusta un GLM mediante regresión logística con la siguiente característica:
+
+```{r}
+Calidad~AF+AV+AC+AR+C+SO2L+SO2T+D+pH+S+GL+Tipo
+```
+
+
+```{r, message=FALSE, warning=FALSE, include=FALSE, echo=FALSE}
+m1 <- multinom(Calidad~AF+AV+AC+AR+C+SO2L+SO2T+D+pH+S+GL+Tipo, data=wines, family=binomial(link='logit'))
+```
+
+De dicho modelo se obtiene: 
+
+```{r, echo=FALSE}
+s <- summary(m1)
+
+sprintf("Deviance: %f", s$deviance)
+sprintf("AIC: %f",s$AIC)
+```
+Realizando un test para los coeficientes se encuentra un patrón, en el cual las variables AC, AR, SO2T, GL no son significativas para la mayoria de las categorias:
+
+```{r}
+coeftest(m1)
+```
+
+Luego de simplificar el modelo, se plantea el modelo final como:
+
+```{r}
+Calidad ~ AF + AV + C + SO2L + pH + S + Tipo
+```
+
+
+```{r, message=FALSE, warning=FALSE, include=FALSE, echo=FALSE}
+m2 <- multinom(formula = Calidad ~ AF + AV + C + SO2L + pH + S + Tipo, family = binomial(link = "logit"), 
+    data = wines)
+```
+
+De dicho modelo se obtiene: 
+
+```{r, echo=FALSE}
+s <- summary(m2)
+
+sprintf("Deviance: %f", s$deviance)
+sprintf("AIC: %f",s$AIC)
+```
+En la figura \ref{fig4}, puede encontrarse la densidad real y las dos estimaciones de los modelos. Puede notarse que las categorías con menor cantidad de muestras tienen una mala estimación, mientras las categorias con mayor cantidad de muestras tienen una sobreestimación, esto podria corregirse balanceando la base de datos, sin embargo  serian necesarias una mayor cantidad de muestras.
+
+```{r, echo=FALSE, fig.cap="Densidad Real y Estimadas\\label{fig4}", fig.height=3, fig.width=7}
+colors = c("red", "blue", "black")
+lines = c(2,2,1) #1
+key.trans <- list(title="Calidad de Vino",
+                  space="right", columns=1, #2
+                  text=list(c("M1", "M2", "Real")),
+                  lines=list(col=colors, lty=lines),
+                  cex.title=1, cex=.9) 
+v1 <- predict(m1) 
+v2 <- predict(m2)
+
+densityplot(~v1 +v2 + wines$Calidad, ref = TRUE,  auto.key=TRUE,  lty=lines, col=colors, key=key.trans, plot.points = FALSE, xlab = "Calidad")
+```
+Sin embargo si se realiza una transformación de la variable Calidad a 3 categorias:
+
+\begin{enumerate}
+  \item 3, 4, 5
+  \item 6
+  \item 7, 8, 9
+\end{enumerate}
+
+Que pueden representarse como Bueno, Regular y Malo, se obtiene el siguiente resultado:
+```{r, message=FALSE, warning=FALSE, include=FALSE, echo=FALSE}
+m1 <- multinom(Ca~AF+AV+AC+AR+C+SO2L+SO2T+D+pH+S+GL+Tipo, data=wines, family=binomial(link='logit'))
+m2 <- multinom(formula = Ca ~ AF + AV + C + SO2L + pH + S + Tipo, family = binomial(link = "logit"), 
+    data = wines)
+```
+
+```{r, echo=FALSE, fig.cap="Densidad Real y Estimadas Ajustada\\label{fig5}", fig.height=3, fig.width=7}
+colors = c("red", "blue", "black")
+lines = c(2,2,1) #1
+key.trans <- list(title="Calidad de Vino",
+                  space="right", columns=1, #2
+                  text=list(c("M1", "M2", "Real")),
+                  lines=list(col=colors, lty=lines),
+                  cex.title=1, cex=.9) 
+v1 <- predict(m1)
+v2 <- predict(m2)
+
+
+densityplot(~v1+v2 + wines$Ca, ref = TRUE,  auto.key=TRUE,  lty=lines, col=colors, key=key.trans, plot.points = FALSE, xlab = "Calidad")
+```
+Es posible evaluar el los resultados obtenidos mediante el uso de una matriz de confusión:
+```{r, echo=FALSE}
+Ca <- as.vector(wines$Ca)
+v1 <- as.vector(v1)
+CM <- confusionMatrix( v1, Ca)
+CM$table
+```
+Es notorio que las categorias 1 y 2 tienen una buena estimación sin embargo la categoria 3 al estar desbalanceada tiene una estimación menor. En la figura \ref{fig6}, se encuentran los residuales obtenidos del modelo simplificado, cada color representa una categoria estimada, los residuales de color rojo representan la categoria 3, los de color verde la categoria 2 y los de color negro la categoria 1. Como era de esperarse, los residuales de la categoria 3 tienen una magnitud mayor, dado que es la categoria con la menor cantidad de muestras, y es la que presenta mayor cantidad de errores de Tipo I y Tipo II. Sin embargo, analizando la matriz de confusión, la estimación de las densidades, y el orden de los residuales, puede inferirse que el modelo obtenido tiene un buen nivel de ajuste.
+
+
+
+```{r, fig.cap="Residuales\\label{fig6}", echo=FALSE, fig.height=3, fig.width=7}
+res <- residuals(m1,type='deviance')
+plot(res, col=wines$Ca)
+```
+
+## Regresión Poisson
+
+Se crea un modelo con la función:
+
+```{r}
+Freq ~ Calidad+Tipo+Tipo_Azucar+pHB
+```
+
+
+```{r, echo=FALSE}
+wines <- read_excel('/home/juliett/EEG/Dropbox/Maestría Matemáticas Aplicadas/Modelos Lineales Generalizados/Trabajo 2/data.xlsx')
+X2 <- table(wines[,12:16]) # Tabla de Contingencia
+m3 <- glm(Freq ~ Calidad+Tipo+Tipo_Azucar+pHB ,data=X2, family = poisson(link="log"))
+```
+Donde se obtiene:
+```{r}
+summary(m3)
+```
+Puede notarse que cada categoria en general es significativa a excepción de valor de Calidad 5. Es por esto que se decide dejar el modelo con todas las variables explicativas. Los coeficientes son consistentes con lo encontrado en la base de datos, donde se tienen una mayor cantidad de vinos con una Calidad de 5, 6 y 7, en comparación con los vinos con Calidad 3. Puede notarse el mismo comportamiento para las variables del Tipo de Azúcar. Se calculan algunos coeficientes adicionales:
+
+```{r, echo=FALSE}
+sb<-summary(m3)
+
+D <- (sb$null.deviance - sb$deviance)/sb$dispersion
+Rd <- 1-( sb$deviance/sb$null.deviance)
+
+sprintf("Deviance: %f", D)
+sprintf("R Deviance: %f",Rd)
+```
+Es notorio el alto resultado R Deviance, en los datos que se presentan a continuación, pueden identificarse las categorias con un peso mayor para la determinación del resultado del modelo propuesto, esto puede deberse a que estas categorias tienen una mayor probabilidad de cumplir con la Acidez Voltatil deseada.
+
+```{r, warning=FALSE}
+exp(cbind(RR=coef(m3), confint(m3)))
+```
+
+Por último se realiza el análisis de residuales del modelo propuesto, pueden encontrarse algunas muestras "outliers", las cuales pueden corresponder a datos atipicos, que pueden ser resultado de variables cualitativas como la Calidad del vino, sin embargo en terminos generales se encuentra que el modelo tiene un buen ajuste del modelo, como lo comprueba el R Deviance obtenido.
+
+```{r, echo=FALSE, fig.cap="Gráficos obtenidos para el Modelo Propuesto"}
+plot(m3)
+```
+
+
+# Conclusiones
+
+El presente trabajo nos permite concluir, que es fundamental el análisis explotarotio de los datos, dado que estas labores explotarias ayudan el argumento de la eliminación de una variable explicativa en un modelo, como fue el caso del primer modelo, o el análisis del modelo resultante como fue el caso del segundo modelo, dado que el análisis para cada caso de las categorias, permite  identificar que categorias no contienen suficiente información para la construcción de un modelo, o puedan apoyar decisiones para la retención de variables categoricas. Esta exploración permite la toma de decisiones para la transformación de algunas variables como se realizo en el primer modelo al reducir el número de categorias para la variable respuesta, permitiendo balancear las categorias.
+
+
+# Bibliografía
+
